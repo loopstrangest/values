@@ -19,9 +19,24 @@
       </div>
     </header>
 
+    <!-- Add Value Form (Initially Hidden) -->
+    <div id="addValueForm" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Add New Value</h3>
+            <label for="newValueName">Value Name:</label>
+            <input type="text" id="newValueName" required>
+            <label for="newValueDesc">Description:</label>
+            <textarea id="newValueDesc" rows="3"></textarea>
+            <div class="modal-buttons">
+                <button id="saveNewValueBtn">Save</button>
+                <button id="cancelNewValueBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Part 1: Initial Sorting -->
     <section id="part1" class="exercise-part">
-      <h2>Part 1: Initial Sorting</h2>
+      <h2>Part 1: Initial Sorting <button id="showAddValueFormBtn" class="inline-btn">+ Add New</button></h2>
       <div class="columns">
         <div class="column" data-column="unassigned">
           <h3>Unassigned</h3>

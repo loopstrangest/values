@@ -6,6 +6,8 @@ export interface ValueCard {
   // Part2: same as Part1
   // Part3: "core" or "additional" (for cards carried over from veryImportant)
   order: number;
+  description?: string; // Add optional description for custom cards
+  isCustom?: boolean; // Flag for custom cards
 }
 
 export interface AppState {
@@ -44,8 +46,7 @@ export class App {
   private state: AppState;
   public undoManager: UndoManager<AppState>;
   private storageKey: string = "valuesExerciseState";
-  // Update type annotation to use DebouncedFunc
-  private debouncedUpdateFinalStatement: DebouncedFunc<(cardId: number, value: string) => void>;
+  private nextCustomCardId: number = -1; // Counter for unique negative IDs
 
   constructor() {
     // Load state from localStorage or initialize default state.
@@ -54,25 +55,22 @@ export class App {
     if (saved) {
       try {
         initialState = JSON.parse(saved) as AppState;
-        // Ensure valueSet exists in saved state, default if not
         if (!initialState.valueSet) {
             initialState.valueSet = 'limited'; 
         }
+        // Initialize nextCustomCardId based on saved custom cards
+        const minId = Math.min(0, ...initialState.cards.filter(c => c.isCustom).map(c => c.id));
+        this.nextCustomCardId = minId - 1;
       } catch {
-        initialState = this.defaultState('limited'); // Default to limited on error
+        initialState = this.defaultState('limited');
+        this.nextCustomCardId = -1; // Reset on error
       }
     } else {
-      initialState = this.defaultState('limited'); // Default to limited initially
+      initialState = this.defaultState('limited');
+      this.nextCustomCardId = -1; // Reset if no saved state
     }
-    this.state = initialState; // Set initial state before UndoManager
+    this.state = initialState;
     this.undoManager = new UndoManager<AppState>(this.state);
-
-    // Re-add initialization using lodash debounce
-    this.debouncedUpdateFinalStatement = debounce((cardId: number, value: string) => {
-        const newState = this.undoManager.getState();
-        newState.finalStatements[cardId] = value;
-        this.updateState(newState);
-    }, 500);
 
     this.bindEventListeners();
     this.render();
@@ -120,9 +118,89 @@ export class App {
     this.updateState(newState);
   }
 
+  // --- Add Value Form Logic ---
+  private showAddValueForm() {
+    const form = document.getElementById('addValueForm') as HTMLDivElement | null;
+    const nameInput = document.getElementById('newValueName') as HTMLInputElement | null;
+    const descInput = document.getElementById('newValueDesc') as HTMLTextAreaElement | null;
+    if (form && nameInput && descInput) {
+        nameInput.value = ''; // Clear previous input
+        descInput.value = '';
+        form.style.display = 'flex'; // Show the modal
+        nameInput.focus(); // Focus the name input
+    }
+  }
+
+  private hideAddValueForm() {
+    const form = document.getElementById('addValueForm') as HTMLDivElement | null;
+    if (form) {
+        form.style.display = 'none'; // Hide the modal
+    }
+  }
+
+  private saveNewValue() {
+    const nameInput = document.getElementById('newValueName') as HTMLInputElement | null;
+    const descInput = document.getElementById('newValueDesc') as HTMLTextAreaElement | null;
+    const name = nameInput?.value.trim().toUpperCase(); // Normalize name
+    const description = descInput?.value.trim();
+
+    if (!name) {
+        alert("Please enter a name for the new value.");
+        nameInput?.focus();
+        return;
+    }
+    if (!description) {
+        alert("Please enter a description for the new value.");
+        descInput?.focus();
+        return;
+    }
+
+    const newState = this.undoManager.getState();
+
+    // Check for duplicates (case-insensitive)
+    if (newState.cards.some(card => card.name.toUpperCase() === name)) {
+        alert(`Value "${name}" already exists.`);
+        nameInput?.focus();
+        return;
+    }
+
+    // Create new card
+    const newCard: ValueCard = {
+        id: this.nextCustomCardId,
+        name: name, 
+        description: description, // Store description directly on card
+        column: 'unassigned', // Add to unassigned in current view
+        order: newState.cards.length, // Add to end
+        isCustom: true
+    };
+
+    this.nextCustomCardId--; // Decrement for next custom card
+
+    newState.cards.push(newCard);
+    this.updateState(newState);
+    this.hideAddValueForm();
+  }
+
   // Bind event listeners for UI interactions.
   private bindEventListeners() {
     const appInstance = this; // Capture the App instance
+
+    // --- Add Value Form Listeners ---
+    document.getElementById('showAddValueFormBtn')?.addEventListener('click', () => {
+        this.showAddValueForm();
+    });
+    document.getElementById('saveNewValueBtn')?.addEventListener('click', () => {
+        this.saveNewValue();
+    });
+    document.getElementById('cancelNewValueBtn')?.addEventListener('click', () => {
+        this.hideAddValueForm();
+    });
+    // Close modal if clicking outside the content
+    document.getElementById('addValueForm')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+            this.hideAddValueForm();
+        }
+    });
 
     // Navigation buttons
     document.getElementById("toPart2")?.addEventListener("click", () => {
@@ -171,9 +249,6 @@ export class App {
       this.updateState(newState); // Call updateState directly
     });
     document.getElementById("finish")?.addEventListener("click", () => {
-      // Flush any pending debounced updates immediately
-      this.debouncedUpdateFinalStatement.flush();
-
       const newState = this.undoManager.getState();
       // Check if all core values have statements
       const coreCards = newState.cards.filter(c => c.column === 'core');
@@ -300,8 +375,8 @@ export class App {
 
     const descriptionElem = document.createElement("span");
     descriptionElem.className = "card-description";
-    // Look up description from the map
-    descriptionElem.textContent = valueDefinitionsMap.get(card.name) || ""; 
+    // Prioritize card.description, fall back to map for built-in values
+    descriptionElem.textContent = card.description || valueDefinitionsMap.get(card.name) || ""; 
 
     cardElem.appendChild(nameElem);
     cardElem.appendChild(descriptionElem);
@@ -443,10 +518,15 @@ export class App {
             input.type = "text";
             input.id = `statement-${card.id}`;
             input.value = this.state.finalStatements[card.id] || "";
-            // Use 'input' event to call the debounced update function
-            input.addEventListener("input", () => {
-              // Call the debounced function, passing necessary info
-              this.debouncedUpdateFinalStatement(card.id, input.value);
+            // Use 'blur' event to update state directly when field loses focus
+            input.addEventListener("blur", () => {
+              const currentState = this.undoManager.getState(); // Get latest state
+              // Avoid modifying the state if it hasn't actually changed
+              if (currentState.finalStatements[card.id] !== input.value) {
+                  const newState = this.undoManager.getState(); // Get a fresh copy to modify
+                  newState.finalStatements[card.id] = input.value;
+                  this.updateState(newState); // Update authoritative state
+              }
             });
             wrapper.appendChild(label);
             wrapper.appendChild(input);
