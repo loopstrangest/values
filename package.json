@@ -4,10 +4,18 @@
   "private": true,
   "devDependencies": {
     "@happy-dom/global-registrator": "^17.4.4",
-    "@types/bun": "^1.2.8"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "@types/bun": "^1.2.8",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "@eslint/js": "^9.13.0",
+    "@trivago/prettier-plugin-sort-imports": "^5",
+    "@types/eslint__js": "^9",
+    "@types/node": "^22.8.4",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.12.2"
   },
   "dependencies": {
     "@types/lodash": "^4.17.16",
@@ -19,6 +27,10 @@
     "dev": "parcel ./index.html",
     "build": "parcel build ./index.html",
     "test": "bun test",
-    "deploy": "bun test && bun run build && bunx wrangler pages deploy dist"
+    "deploy": "bun test && bun run build && bunx wrangler pages deploy dist",
+    "format": "bunx prettier --write .",
+    "lint": "bunx eslint .",
+    "lint:fix": "bunx eslint --fix .",
+    "prepare": "husky"
   }
 }

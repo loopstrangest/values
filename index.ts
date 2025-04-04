@@ -1,3 +1,6 @@
+import { UndoManager } from './undoManager';
+import { VALUES } from './values';
+
 // Define interfaces for our value cards and overall app state.
 export interface ValueCard {
   id: number;
@@ -11,26 +14,20 @@ export interface ValueCard {
 }
 
 export interface AppState {
-  currentPart: "part1" | "part2" | "part3" | "part4" | "review";
+  currentPart: 'part1' | 'part2' | 'part3' | 'part4' | 'review';
   cards: ValueCard[];
   // In part 4, user can add final statements for each core value (by card id)
-  finalStatements: { [cardId: number]: string };
+  finalStatements: Record<number, string>;
   valueSet: 'limited' | 'all'; // Add state for current value set
   editingDescriptionCardId: number | null; // ID of card whose description is being edited
 }
 
-// Import the UndoManager from its own file
-import { UndoManager } from './undoManager';
-// Import the original VALUES array
-import { VALUES } from './values'; 
-// Import debounce and the necessary type from lodash
-import { debounce } from 'lodash'; 
-import type { DebouncedFunc } from 'lodash'; // Use type-only import
+// Use type-only import
 
 // Define the structure based on the imported VALUES
 interface ValueDefinition {
-    name: string;
-    description: string;
+  name: string;
+  description: string;
 }
 
 // Recreate ALL_VALUES and LIMITED_VALUES based on the import
@@ -39,15 +36,15 @@ const LIMITED_VALUE_DEFINITIONS = ALL_VALUE_DEFINITIONS.slice(0, 10);
 
 // Create a global map for easy description lookup
 const valueDefinitionsMap = new Map<string, string>(
-    ALL_VALUE_DEFINITIONS.map((def: ValueDefinition) => [def.name, def.description])
+  ALL_VALUE_DEFINITIONS.map((def: ValueDefinition) => [def.name, def.description]),
 );
 
 // Main application class
 export class App {
   private state: AppState;
   public undoManager: UndoManager<AppState>;
-  private storageKey: string = "valuesExerciseState";
-  private nextCustomCardId: number = -1; // Counter for unique negative IDs
+  private storageKey = 'valuesExerciseState';
+  private nextCustomCardId = -1; // Counter for unique negative IDs
 
   constructor() {
     // Load state from localStorage or initialize default state.
@@ -56,12 +53,9 @@ export class App {
     if (saved) {
       try {
         initialState = JSON.parse(saved) as AppState;
-        if (!initialState.valueSet) {
-            initialState.valueSet = 'limited'; 
-        }
         // Ensure editing state is null initially
-        initialState.editingDescriptionCardId = null; 
-        const minId = Math.min(0, ...initialState.cards.filter(c => c.isCustom).map(c => c.id));
+        initialState.editingDescriptionCardId = null;
+        const minId = Math.min(0, ...initialState.cards.filter((c) => c.isCustom).map((c) => c.id));
         this.nextCustomCardId = minId - 1;
       } catch {
         initialState = this.defaultState('limited');
@@ -85,13 +79,13 @@ export class App {
     const sampleCards: ValueCard[] = definitionsToUse.map((definition: ValueDefinition, index: number) => ({
       id: index + 1,
       name: definition.name, // Use name from definition
-      column: "unassigned",
+      column: 'unassigned',
       order: index,
       description: undefined, // Ensure built-in cards start with no override
-      isCustom: false
+      isCustom: false,
     }));
     return {
-      currentPart: "part1",
+      currentPart: 'part1',
       cards: sampleCards,
       finalStatements: {},
       valueSet: valueSet, // Store the set used
@@ -124,59 +118,59 @@ export class App {
   }
 
   // --- Add Value Form Logic ---
-  private showAddValueForm() {
+  public showAddValueForm() {
     const form = document.getElementById('addValueForm') as HTMLDivElement | null;
     const nameInput = document.getElementById('newValueName') as HTMLInputElement | null;
     const descInput = document.getElementById('newValueDesc') as HTMLTextAreaElement | null;
     if (form && nameInput && descInput) {
-        nameInput.value = ''; // Clear previous input
-        descInput.value = '';
-        form.style.display = 'flex'; // Show the modal
-        nameInput.focus(); // Focus the name input
+      nameInput.value = ''; // Clear previous input
+      descInput.value = '';
+      form.style.display = 'flex'; // Show the modal
+      nameInput.focus(); // Focus the name input
     }
   }
 
-  private hideAddValueForm() {
+  public hideAddValueForm() {
     const form = document.getElementById('addValueForm') as HTMLDivElement | null;
     if (form) {
-        form.style.display = 'none'; // Hide the modal
+      form.style.display = 'none'; // Hide the modal
     }
   }
 
-  private saveNewValue() {
+  public saveNewValue() {
     const nameInput = document.getElementById('newValueName') as HTMLInputElement | null;
     const descInput = document.getElementById('newValueDesc') as HTMLTextAreaElement | null;
     const name = nameInput?.value.trim().toUpperCase(); // Normalize name
     const description = descInput?.value.trim();
 
     if (!name) {
-        alert("Please enter a name for the new value.");
-        nameInput?.focus();
-        return;
+      alert('Please enter a name for the new value.');
+      nameInput?.focus();
+      return;
     }
     if (!description) {
-        alert("Please enter a description for the new value.");
-        descInput?.focus();
-        return;
+      alert('Please enter a description for the new value.');
+      descInput?.focus();
+      return;
     }
 
     const newState = this.undoManager.getState();
 
     // Check for duplicates (case-insensitive)
-    if (newState.cards.some(card => card.name.toUpperCase() === name)) {
-        alert(`Value "${name}" already exists.`);
-        nameInput?.focus();
-        return;
+    if (newState.cards.some((card) => card.name.toUpperCase() === name)) {
+      alert(`Value "${name}" already exists.`);
+      nameInput?.focus();
+      return;
     }
 
     // Create new card
     const newCard: ValueCard = {
-        id: this.nextCustomCardId,
-        name: name, 
-        description: description, // Store description directly on card
-        column: 'unassigned', // Add to unassigned in current view
-        order: newState.cards.length, // Add to end
-        isCustom: true
+      id: this.nextCustomCardId,
+      name: name,
+      description: description, // Store description directly on card
+      column: 'unassigned', // Add to unassigned in current view
+      order: newState.cards.length, // Add to end
+      isCustom: true,
     };
 
     this.nextCustomCardId--; // Decrement for next custom card
@@ -187,137 +181,140 @@ export class App {
   }
 
   // --- Description Edit Logic ---
-  private startEditingDescription(cardId: number) {
-      const newState = this.undoManager.getState();
-      newState.editingDescriptionCardId = cardId;
-      this.updateState(newState); // Re-render to show the textarea
+  public startEditingDescription(cardId: number) {
+    const newState = this.undoManager.getState();
+    newState.editingDescriptionCardId = cardId;
+    this.updateState(newState); // Re-render to show the textarea
   }
 
-  private saveDescriptionEdit(cardId: number, newDescription: string) {
-      const newState = this.undoManager.getState();
-      const cardToUpdate = newState.cards.find(c => c.id === cardId);
-      if (cardToUpdate) {
-          cardToUpdate.description = newDescription.trim(); // Save trimmed description
-      }
-      newState.editingDescriptionCardId = null; // Stop editing
-      this.updateState(newState);
+  public saveDescriptionEdit(cardId: number, newDescription: string) {
+    const newState = this.undoManager.getState();
+    const cardToUpdate = newState.cards.find((c) => c.id === cardId);
+    if (cardToUpdate) {
+      cardToUpdate.description = newDescription.trim(); // Save trimmed description
+    }
+    newState.editingDescriptionCardId = null; // Stop editing
+    this.updateState(newState);
   }
 
-  private cancelDescriptionEdit() {
-      const newState = this.undoManager.getState();
-      newState.editingDescriptionCardId = null; // Just stop editing, don't save
-      this.updateState(newState);
+  public cancelDescriptionEdit() {
+    const newState = this.undoManager.getState();
+    newState.editingDescriptionCardId = null; // Just stop editing, don't save
+    this.updateState(newState);
   }
 
   // Bind event listeners for UI interactions.
   private bindEventListeners() {
-    const appInstance = this; // Capture the App instance
+    // Remove alias: Arrow functions capture 'this' correctly
+    // const appInstance = this;
 
     // --- Add Value Form Listeners ---
     document.getElementById('showAddValueFormBtn')?.addEventListener('click', () => {
-        this.showAddValueForm();
+      this.showAddValueForm();
     });
     document.getElementById('saveNewValueBtn')?.addEventListener('click', () => {
-        this.saveNewValue();
+      this.saveNewValue();
     });
     document.getElementById('cancelNewValueBtn')?.addEventListener('click', () => {
-        this.hideAddValueForm();
+      this.hideAddValueForm();
     });
     // Close modal if clicking outside the content
     document.getElementById('addValueForm')?.addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) {
-            this.hideAddValueForm();
-        }
+      if (e.target === e.currentTarget) {
+        this.hideAddValueForm();
+      }
     });
 
     // Navigation buttons
-    document.getElementById("toPart2")?.addEventListener("click", () => {
+    document.getElementById('toPart2')?.addEventListener('click', () => {
       const newState = this.undoManager.getState();
       // Check for unassigned cards before proceeding
-      const unassignedCount = newState.cards.filter(card => card.column === 'unassigned').length;
+      const unassignedCount = newState.cards.filter((card) => card.column === 'unassigned').length;
       if (unassignedCount > 0) {
         alert(`Please sort all ${unassignedCount} unassigned value(s) before proceeding to Part 2.`);
         return;
       }
-      newState.currentPart = "part2";
+      newState.currentPart = 'part2';
       newState.cards = newState.cards
-        .filter(card => card.column === "veryImportant")
-        .map(card => ({ ...card, column: "unassigned" }));
+        .filter((card) => card.column === 'veryImportant')
+        .map((card) => ({ ...card, column: 'unassigned' }));
       this.updateState(newState); // Call updateState directly
     });
-    document.getElementById("toPart3")?.addEventListener("click", () => {
+    document.getElementById('toPart3')?.addEventListener('click', () => {
       const newState = this.undoManager.getState();
       // Check for unassigned cards before proceeding
-      const unassignedCount = newState.cards.filter(card => card.column === 'unassigned').length;
+      const unassignedCount = newState.cards.filter((card) => card.column === 'unassigned').length;
       if (unassignedCount > 0) {
         alert(`Please sort all ${unassignedCount} unassigned value(s) before proceeding.`);
         return;
       }
-      const veryImportantCards = newState.cards.filter((c) => c.column === "veryImportant");
+      const veryImportantCards = newState.cards.filter((c) => c.column === 'veryImportant');
       const veryImportantCount = veryImportantCards.length;
 
       if (veryImportantCount <= 5) {
-        newState.currentPart = "part4";
+        newState.currentPart = 'part4';
       } else {
-        newState.currentPart = "part3";
+        newState.currentPart = 'part3';
       }
       // Move all "veryImportant" cards to "core" regardless of the next part
-      newState.cards = veryImportantCards.map((c, idx) => ({ ...c, column: "core", order: idx }));
+      newState.cards = veryImportantCards.map((c, idx) => ({ ...c, column: 'core', order: idx }));
 
       this.updateState(newState); // Call updateState directly
     });
-    document.getElementById("toPart4")?.addEventListener("click", () => {
+    document.getElementById('toPart4')?.addEventListener('click', () => {
       const newState = this.undoManager.getState();
-      const coreCount = newState.cards.filter((c) => c.column === "core").length;
+      const coreCount = newState.cards.filter((c) => c.column === 'core').length;
       if (coreCount > 5) {
         alert("You can only have 5 core values! Please move some values to 'Also Something I Want' before continuing.");
         return; // Don't update state if validation fails
       }
-      newState.currentPart = "part4";
+      newState.currentPart = 'part4';
       this.updateState(newState); // Call updateState directly
     });
-    document.getElementById("finish")?.addEventListener("click", () => {
+    document.getElementById('finish')?.addEventListener('click', () => {
       const newState = this.undoManager.getState();
       // Check if all core values have statements
-      const coreCards = newState.cards.filter(c => c.column === 'core');
-      const missingStatements = coreCards.filter(card => !newState.finalStatements[card.id]?.trim());
+      const coreCards = newState.cards.filter((c) => c.column === 'core');
+      const missingStatements = coreCards.filter((card) => !newState.finalStatements[card.id]?.trim());
 
       if (missingStatements.length > 0) {
-          alert(`Please provide a statement for all core values. Missing: ${missingStatements.map(c => c.name).join(', ')}`);
-          return; // Prevent transition
+        alert(
+          `Please provide a statement for all core values. Missing: ${missingStatements.map((c) => c.name).join(', ')}`,
+        );
+        return; // Prevent transition
       }
-      
+
       // Original transition logic
-      newState.currentPart = "review";
+      newState.currentPart = 'review';
       this.updateState(newState); // Call updateState directly
     });
-    document.getElementById("restart")?.addEventListener("click", () => {
+    document.getElementById('restart')?.addEventListener('click', () => {
       const newState = this.defaultState();
       this.updateState(newState); // Call updateState directly
     });
 
     // --- Add listeners for the toggle buttons ---
-    document.getElementById("useLimitedValuesBtn")?.addEventListener("click", () => {
-        // Use captured instance
-        const currentSet = appInstance.undoManager.getState().valueSet;
-        if (currentSet !== 'limited') {
-            if (confirm("Switching value sets will reset your current progress. Are you sure?")) {
-                appInstance.toggleValueSet(); // Use captured instance
-            }
+    document.getElementById('useLimitedValuesBtn')?.addEventListener('click', () => {
+      // Use captured instance
+      const currentSet = this.undoManager.getState().valueSet;
+      if (currentSet !== 'limited') {
+        if (confirm('Switching value sets will reset your current progress. Are you sure?')) {
+          this.toggleValueSet();
         }
+      }
     });
-    document.getElementById("useAllValuesBtn")?.addEventListener("click", () => {
-        // Use captured instance
-        const currentSet = appInstance.undoManager.getState().valueSet;
-        if (currentSet !== 'all') {
-            if (confirm("Switching value sets will reset your current progress. Are you sure?")) {
-                appInstance.toggleValueSet(); // Use captured instance
-            }
+    document.getElementById('useAllValuesBtn')?.addEventListener('click', () => {
+      // Use captured instance
+      const currentSet = this.undoManager.getState().valueSet;
+      if (currentSet !== 'all') {
+        if (confirm('Switching value sets will reset your current progress. Are you sure?')) {
+          this.toggleValueSet();
         }
+      }
     });
 
     // Undo/Redo buttons
-    document.getElementById("undoBtn")?.addEventListener("click", () => {
+    document.getElementById('undoBtn')?.addEventListener('click', () => {
       const prev = this.undoManager.undo();
       if (prev) {
         this.state = prev;
@@ -326,7 +323,7 @@ export class App {
         this.updateUndoRedoButtons();
       }
     });
-    document.getElementById("redoBtn")?.addEventListener("click", () => {
+    document.getElementById('redoBtn')?.addEventListener('click', () => {
       const next = this.undoManager.redo();
       if (next) {
         this.state = next;
@@ -337,29 +334,31 @@ export class App {
     });
 
     // Clear storage button (renamed to Restart exercise)
-    document.getElementById("clearStorageBtn")?.addEventListener("click", () => {
+    document.getElementById('clearStorageBtn')?.addEventListener('click', () => {
       // Update confirmation message
-      if (confirm("Are you sure you want to restart the exercise? All progress will be lost. This action cannot be undone.")) {
+      if (
+        confirm(
+          'Are you sure you want to restart the exercise? All progress will be lost. This action cannot be undone.',
+        )
+      ) {
         localStorage.removeItem(this.storageKey);
         // Reset to the default state using the *current* value set preference
-        const newState = this.defaultState(this.state.valueSet); 
+        const newState = this.defaultState(this.state.valueSet);
         this.updateState(newState);
       }
     });
 
     // Set up drag and drop for card movement in all card-container elements.
-    const containers = document.querySelectorAll(".card-container");
+    const containers = document.querySelectorAll('.card-container');
     containers.forEach((container) => {
-      container.addEventListener("dragover", (e) => {
+      container.addEventListener('dragover', (e) => {
         e.preventDefault();
       });
-      container.addEventListener("drop", (e) => {
+      container.addEventListener('drop', (e) => {
         e.preventDefault();
         const dragEvent = e as DragEvent;
-        const cardId = Number(dragEvent.dataTransfer?.getData("text/plain"));
-        const targetColumn = (
-          container.parentElement as HTMLElement
-        ).getAttribute("data-column");
+        const cardId = Number(dragEvent.dataTransfer?.getData('text/plain'));
+        const targetColumn = container.parentElement!.getAttribute('data-column');
         if (targetColumn) {
           this.moveCard(cardId, targetColumn);
         }
@@ -373,12 +372,10 @@ export class App {
     const card = newState.cards.find((c) => c.id === cardId);
     if (card) {
       // If in Part3 and moving to the 'core' column, enforce a maximum of 5 core cards.
-      if (newState.currentPart === "part3" && newColumn === "core") {
-        const coreCount = newState.cards.filter(
-          (c) => c.column === "core"
-        ).length;
-        if (coreCount >= 5 && card.column !== "core") {
-          alert("You can only have 5 core values!");
+      if (newState.currentPart === 'part3' && newColumn === 'core') {
+        const coreCount = newState.cards.filter((c) => c.column === 'core').length;
+        if (coreCount >= 5 && card.column !== 'core') {
+          alert('You can only have 5 core values!');
           return;
         }
       }
@@ -391,67 +388,69 @@ export class App {
 
   // Creates a draggable card element, handles description editing UI.
   private createCardElement(card: ValueCard): HTMLElement {
-    const cardElem = document.createElement("div");
-    cardElem.className = "card";
+    const cardElem = document.createElement('div');
+    cardElem.className = 'card';
     cardElem.draggable = true;
     cardElem.dataset.cardId = card.id.toString();
 
-    const nameElem = document.createElement("span");
-    nameElem.className = "card-name";
+    const nameElem = document.createElement('span');
+    nameElem.className = 'card-name';
     nameElem.textContent = card.name;
     cardElem.appendChild(nameElem);
 
     // Container for description/edit area
-    const descriptionContainer = document.createElement("div");
-    descriptionContainer.className = "card-description-container";
+    const descriptionContainer = document.createElement('div');
+    descriptionContainer.className = 'card-description-container';
 
     if (this.state.editingDescriptionCardId === card.id) {
-        // RENDER EDIT TEXTAREA
-        const textarea = document.createElement('textarea');
-        textarea.className = 'card-description-edit';
-        textarea.value = card.description || valueDefinitionsMap.get(card.name) || "";
-        textarea.rows = 3;
+      // RENDER EDIT TEXTAREA
+      const textarea = document.createElement('textarea');
+      textarea.className = 'card-description-edit';
+      textarea.value = card.description ?? valueDefinitionsMap.get(card.name) ?? '';
+      textarea.rows = 3;
 
-        textarea.addEventListener('blur', () => {
-            this.saveDescriptionEdit(card.id, textarea.value);
-        });
+      textarea.addEventListener('blur', () => {
+        this.saveDescriptionEdit(card.id, textarea.value);
+      });
 
-        textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault(); // Prevent newline
-                this.saveDescriptionEdit(card.id, textarea.value);
-            } else if (e.key === 'Escape') {
-                this.cancelDescriptionEdit();
-            }
-        });
-        
-        descriptionContainer.appendChild(textarea);
-        // Auto-focus the textarea after it's rendered
-        setTimeout(() => textarea.focus(), 0); 
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault(); // Prevent newline
+          this.saveDescriptionEdit(card.id, textarea.value);
+        } else if (e.key === 'Escape') {
+          this.cancelDescriptionEdit();
+        }
+      });
 
+      descriptionContainer.appendChild(textarea);
+      // Auto-focus the textarea after it's rendered
+      setTimeout(() => {
+        textarea.focus();
+      }, 0);
     } else {
-        // RENDER DESCRIPTION TEXT (Clickable)
-        const descriptionElem = document.createElement("span");
-        descriptionElem.className = "card-description clickable"; // Add clickable class
-        descriptionElem.textContent = card.description || valueDefinitionsMap.get(card.name) || "(Click to add description)"; 
-        descriptionElem.title = "Click to edit description"; // Tooltip
+      // RENDER DESCRIPTION TEXT (Clickable)
+      const descriptionElem = document.createElement('span');
+      descriptionElem.className = 'card-description clickable'; // Add clickable class
+      descriptionElem.textContent =
+        card.description ?? valueDefinitionsMap.get(card.name) ?? '(Click to add description)';
+      descriptionElem.title = 'Click to edit description'; // Tooltip
 
-        descriptionElem.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent card drag start if clicking text
-            this.startEditingDescription(card.id);
-        });
-        descriptionContainer.appendChild(descriptionElem);
+      descriptionElem.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent card drag start if clicking text
+        this.startEditingDescription(card.id);
+      });
+      descriptionContainer.appendChild(descriptionElem);
     }
 
     cardElem.appendChild(descriptionContainer);
 
-    cardElem.addEventListener("dragstart", (e) => {
-        // Only allow drag if not editing description
-        if (this.state.editingDescriptionCardId === null) {
-            e.dataTransfer?.setData("text/plain", card.id.toString());
-        } else {
-            e.preventDefault(); // Prevent drag while editing
-        }
+    cardElem.addEventListener('dragstart', (e) => {
+      // Only allow drag if not editing description
+      if (this.state.editingDescriptionCardId === null) {
+        e.dataTransfer?.setData('text/plain', card.id.toString());
+      } else {
+        e.preventDefault(); // Prevent drag while editing
+      }
     });
 
     return cardElem;
@@ -460,67 +459,67 @@ export class App {
   // Render the UI based on the current state.
   private render() {
     // Manage tabindex for global controls based on current part
-    const isPart4Active = this.state.currentPart === "part4";
+    const isPart4Active = this.state.currentPart === 'part4';
     const globalControls = document.querySelectorAll('#global-controls button');
-    globalControls.forEach(btn => {
-        if (isPart4Active) {
-            (btn as HTMLElement).tabIndex = -1; // Make header buttons non-tabbable during Part 4
-        } else {
-            (btn as HTMLElement).removeAttribute('tabindex'); // Restore default tabbability
-        }
+    globalControls.forEach((btn) => {
+      if (isPart4Active) {
+        (btn as HTMLElement).tabIndex = -1; // Make header buttons non-tabbable during Part 4
+      } else {
+        (btn as HTMLElement).removeAttribute('tabindex'); // Restore default tabbability
+      }
     });
 
     // Hide all parts first.
-    document.querySelectorAll(".exercise-part").forEach((section) => {
-      (section as HTMLElement).style.display = "none";
+    document.querySelectorAll('.exercise-part').forEach((section) => {
+      (section as HTMLElement).style.display = 'none';
     });
     // Show the current part.
     const partElem = document.getElementById(this.state.currentPart);
     if (partElem) {
-      partElem.style.display = "block";
+      partElem.style.display = 'block';
     }
     // Render cards for the current part.
-    if (this.state.currentPart === "part1") {
+    if (this.state.currentPart === 'part1') {
       // Clear containers for Part 1
       [
-        "part1-unassignedContainer",
-        "part1-veryImportantContainer",
-        "part1-importantContainer",
-        "part1-notImportantContainer",
+        'part1-unassignedContainer',
+        'part1-veryImportantContainer',
+        'part1-importantContainer',
+        'part1-notImportantContainer',
       ].forEach((id) => {
         const container = document.getElementById(id);
-        if (container) container.innerHTML = "";
+        if (container) container.innerHTML = '';
       });
       // Render each card into its Part 1 container.
       this.state.cards.forEach((card) => {
-        const containerId = "part1-" + card.column + "Container"; // Use Part 1 prefix
+        const containerId = 'part1-' + card.column + 'Container'; // Use Part 1 prefix
         const container = document.getElementById(containerId);
         if (container) {
           const cardElem = this.createCardElement(card); // Use helper
           container.appendChild(cardElem);
         }
       });
-    } else if (this.state.currentPart === "part2") {
+    } else if (this.state.currentPart === 'part2') {
       // Clear containers for Part 2
       [
-        "part2-unassignedContainer",
-        "part2-veryImportantContainer",
-        "part2-importantContainer",
-        "part2-notImportantContainer",
+        'part2-unassignedContainer',
+        'part2-veryImportantContainer',
+        'part2-importantContainer',
+        'part2-notImportantContainer',
       ].forEach((id) => {
         const container = document.getElementById(id);
-        if (container) container.innerHTML = "";
+        if (container) container.innerHTML = '';
       });
-      
+
       // Log the state for debugging (can be removed later)
       // console.log("Rendering Part 2:", {
       //   totalCards: this.state.cards.length,
       //   cards: this.state.cards.map(c => ({ name: c.name, column: c.column }))
       // });
-      
+
       // In Part 2, show all cards in their current Part 2 columns
       this.state.cards.forEach((card) => {
-        const containerId = "part2-" + card.column + "Container"; // Use Part 2 prefix
+        const containerId = 'part2-' + card.column + 'Container'; // Use Part 2 prefix
         const container = document.getElementById(containerId);
         if (container) {
           const cardElem = this.createCardElement(card); // Use helper
@@ -530,15 +529,15 @@ export class App {
           // console.error(`Container not found for card ${card.name} in column ${card.column}`);
         }
       });
-    } else if (this.state.currentPart === "part3") {
+    } else if (this.state.currentPart === 'part3') {
       // Clear containers for part3
-      ["coreContainer", "additionalContainer"].forEach((id) => {
+      ['coreContainer', 'additionalContainer'].forEach((id) => {
         const container = document.getElementById(id);
-        if (container) container.innerHTML = "";
+        if (container) container.innerHTML = '';
       });
       this.state.cards.forEach((card) => {
-        if (card.column === "core" || card.column === "additional") {
-          const containerId = card.column + "Container";
+        if (card.column === 'core' || card.column === 'additional') {
+          const containerId = card.column + 'Container';
           const container = document.getElementById(containerId);
           if (container) {
             const cardElem = this.createCardElement(card); // Use helper
@@ -546,56 +545,56 @@ export class App {
           }
         }
       });
-    } else if (this.state.currentPart === "part4") {
+    } else if (this.state.currentPart === 'part4') {
       // Render text inputs for each core value.
-      const finalStatementsContainer = document.getElementById("finalStatements");
+      const finalStatementsContainer = document.getElementById('finalStatements');
       if (finalStatementsContainer) {
-        const coreCards = this.state.cards.filter((c) => c.column === "core");
+        const coreCards = this.state.cards.filter((c) => c.column === 'core');
         coreCards.sort((a, b) => a.name.localeCompare(b.name)); // Keep sorting for consistent order
 
         // Check if inputs matching core cards already exist
         const existingInputs = finalStatementsContainer.querySelectorAll<HTMLInputElement>('input[type="text"]');
         let inputsMatch = existingInputs.length === coreCards.length;
         if (inputsMatch) {
-            existingInputs.forEach((input, index) => {
-                // Verify the input corresponds to the correct card (using id or other attribute if needed)
-                // For simplicity, we assume order matches due to sorting if length is correct
-                if (coreCards[index]?.id.toString() !== input.id.replace('statement-', '')) {
-                    inputsMatch = false;
-                }
-            });
+          existingInputs.forEach((input, index) => {
+            // Verify the input corresponds to the correct card (using id or other attribute if needed)
+            // For simplicity, we assume order matches due to sorting if length is correct
+            if (coreCards[index]?.id.toString() !== input.id.replace('statement-', '')) {
+              inputsMatch = false;
+            }
+          });
         }
 
         if (inputsMatch) {
           // Inputs exist and match: Just update their values
           existingInputs.forEach((input) => {
             const cardId = Number(input.id.replace('statement-', ''));
-            const currentValue = this.state.finalStatements[cardId] || "";
+            const currentValue = this.state.finalStatements[cardId] ?? '';
             if (input.value !== currentValue) {
               input.value = currentValue;
             }
           });
         } else {
           // Inputs don't exist or don't match: Clear and recreate them
-          finalStatementsContainer.innerHTML = ""; 
-          coreCards.forEach((card, index) => {
-            const wrapper = document.createElement("div");
-            wrapper.className = "final-statement";
-            const label = document.createElement("label");
+          finalStatementsContainer.innerHTML = '';
+          coreCards.forEach((card) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'final-statement';
+            const label = document.createElement('label');
             label.htmlFor = `statement-${card.id}`;
             label.textContent = `Describe what "${card.name}" means to you:`;
-            const input = document.createElement("input");
-            input.type = "text";
+            const input = document.createElement('input');
+            input.type = 'text';
             input.id = `statement-${card.id}`;
-            input.value = this.state.finalStatements[card.id] || "";
+            input.value = this.state.finalStatements[card.id] ?? '';
             // Use 'blur' event to update state directly when field loses focus
-            input.addEventListener("blur", () => {
+            input.addEventListener('blur', () => {
               const currentState = this.undoManager.getState(); // Get latest state
               // Avoid modifying the state if it hasn't actually changed
               if (currentState.finalStatements[card.id] !== input.value) {
-                  const newState = this.undoManager.getState(); // Get a fresh copy to modify
-                  newState.finalStatements[card.id] = input.value;
-                  this.updateState(newState); // Update authoritative state
+                const newState = this.undoManager.getState(); // Get a fresh copy to modify
+                newState.finalStatements[card.id] = input.value;
+                this.updateState(newState); // Update authoritative state
               }
             });
             wrapper.appendChild(label);
@@ -604,47 +603,48 @@ export class App {
           });
         }
       }
-    } else if (this.state.currentPart === "review") {
-      const reviewContent = document.getElementById("reviewContent");
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    else if (this.state.currentPart === 'review') {
+      const reviewContent = document.getElementById('reviewContent');
       if (reviewContent) {
-        reviewContent.innerHTML = "";
-        
+        reviewContent.innerHTML = '';
+
         // Add the visualization grid
-        const grid = document.createElement("div");
-        grid.className = "values-grid";
-        
+        const grid = document.createElement('div');
+        grid.className = 'values-grid';
+
         // Create sections for core values and additional values
         const categories = [
-          { title: "Core Values (F*CK YEAH)", column: "core" },
-          { title: "Also Something I Want", column: "additional" }
+          { title: 'Core Values (F*CK YEAH)', column: 'core' },
+          { title: 'Also Something I Want', column: 'additional' },
         ];
-        
-        categories.forEach(category => {
-          const section = document.createElement("div");
-          section.className = "grid-section";
-          const title = document.createElement("h3");
+
+        categories.forEach((category) => {
+          const section = document.createElement('div');
+          section.className = 'grid-section';
+          const title = document.createElement('h3');
           title.textContent = category.title;
           section.appendChild(title);
-          
+
           // Get the actual card objects, not just names
-          const cardsInCategory = this.state.cards
-            .filter(c => c.column === category.column);
-            // Sort them alphabetically by name for consistent display
+          const cardsInCategory = this.state.cards.filter((c) => c.column === category.column);
+          // Sort them alphabetically by name for consistent display
           cardsInCategory.sort((a, b) => a.name.localeCompare(b.name));
-          
+
           if (cardsInCategory.length > 0) {
-            const list = document.createElement("ul");
+            const list = document.createElement('ul');
             // Iterate over the card objects
-            cardsInCategory.forEach(card => { 
-              const li = document.createElement("li");
+            cardsInCategory.forEach((card) => {
+              const li = document.createElement('li');
               const nameSpan = document.createElement('span');
               nameSpan.className = 'review-value-name';
               nameSpan.textContent = card.name; // Use name from card object
- 
+
               const descSpan = document.createElement('span');
               descSpan.className = 'review-value-description';
               // Prioritize card.description, fall back to map
-              descSpan.textContent = card.description || valueDefinitionsMap.get(card.name) || "(Description missing)";
+              descSpan.textContent = card.description ?? valueDefinitionsMap.get(card.name) ?? '(Description missing)';
 
               li.appendChild(nameSpan);
               li.appendChild(descSpan);
@@ -652,21 +652,21 @@ export class App {
             });
             section.appendChild(list);
           }
-          
+
           grid.appendChild(section);
         });
-        
+
         reviewContent.appendChild(grid);
-        
+
         // Add the final statements
-        const title = document.createElement("h3");
-        title.textContent = "Your Core Values & Statements:";
+        const title = document.createElement('h3');
+        title.textContent = 'Your Core Values & Statements:';
         reviewContent.appendChild(title);
-        const list = document.createElement("ul");
-        const coreCards = this.state.cards.filter((c) => c.column === "core");
+        const list = document.createElement('ul');
+        const coreCards = this.state.cards.filter((c) => c.column === 'core');
         coreCards.forEach((card) => {
-          const li = document.createElement("li");
-          const statement = this.state.finalStatements[card.id] || "(No statement written)";
+          const li = document.createElement('li');
+          const statement = this.state.finalStatements[card.id] ?? '(No statement written)';
           li.textContent = `${statement} (${card.name})`;
           list.appendChild(li);
         });
@@ -675,30 +675,32 @@ export class App {
     }
 
     // -- Update toggle button appearance based on current state --
-    const limitedBtn = document.getElementById("useLimitedValuesBtn") as HTMLButtonElement | null;
-    const allBtn = document.getElementById("useAllValuesBtn") as HTMLButtonElement | null;
+    const limitedBtn = document.getElementById('useLimitedValuesBtn') as HTMLButtonElement | null;
+    const allBtn = document.getElementById('useAllValuesBtn') as HTMLButtonElement | null;
     if (limitedBtn) {
-        limitedBtn.classList.toggle('active', this.state.valueSet === 'limited');
-        limitedBtn.disabled = this.state.valueSet === 'limited'; // Disable active button
+      limitedBtn.classList.toggle('active', this.state.valueSet === 'limited');
+      limitedBtn.disabled = this.state.valueSet === 'limited'; // Disable active button
     }
     if (allBtn) {
-        allBtn.classList.toggle('active', this.state.valueSet === 'all');
-        allBtn.disabled = this.state.valueSet === 'all'; // Disable active button
+      allBtn.classList.toggle('active', this.state.valueSet === 'all');
+      allBtn.disabled = this.state.valueSet === 'all'; // Disable active button
     }
   }
 
   // Update the disabled state of the undo/redo buttons.
   private updateUndoRedoButtons() {
-    const undoBtn = document.getElementById("undoBtn") as HTMLButtonElement;
-    const redoBtn = document.getElementById("redoBtn") as HTMLButtonElement;
+    const undoBtn = document.getElementById('undoBtn') as HTMLButtonElement;
+    const redoBtn = document.getElementById('redoBtn') as HTMLButtonElement;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (undoBtn) undoBtn.disabled = !this.undoManager.canUndo();
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (redoBtn) redoBtn.disabled = !this.undoManager.canRedo();
   }
 }
 
 // Initialize the app normally, only if in a browser environment
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-  window.addEventListener("DOMContentLoaded", () => {
+  window.addEventListener('DOMContentLoaded', () => {
     new App();
   });
 }

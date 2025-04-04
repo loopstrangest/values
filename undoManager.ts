@@ -7,7 +7,7 @@ export class UndoManager<T> {
     this.currentState = this.deepCopy(initialState);
   }
   private deepCopy(state: T): T {
-    return JSON.parse(JSON.stringify(state));
+    return JSON.parse(JSON.stringify(state)) as T;
   }
   execute(newState: T) {
     this.undoStack.push(this.deepCopy(this.currentState));
@@ -35,4 +35,4 @@ export class UndoManager<T> {
   canRedo(): boolean {
     return this.redoStack.length > 0;
   }
-} 
+}
