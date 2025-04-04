@@ -16,6 +16,7 @@ export interface AppState {
   // In part 4, user can add final statements for each core value (by card id)
   finalStatements: { [cardId: number]: string };
   valueSet: 'limited' | 'all'; // Add state for current value set
+  editingDescriptionCardId: number | null; // ID of card whose description is being edited
 }
 
 // Import the UndoManager from its own file
@@ -58,7 +59,8 @@ export class App {
         if (!initialState.valueSet) {
             initialState.valueSet = 'limited'; 
         }
-        // Initialize nextCustomCardId based on saved custom cards
+        // Ensure editing state is null initially
+        initialState.editingDescriptionCardId = null; 
         const minId = Math.min(0, ...initialState.cards.filter(c => c.isCustom).map(c => c.id));
         this.nextCustomCardId = minId - 1;
       } catch {
@@ -85,12 +87,15 @@ export class App {
       name: definition.name, // Use name from definition
       column: "unassigned",
       order: index,
+      description: undefined, // Ensure built-in cards start with no override
+      isCustom: false
     }));
     return {
       currentPart: "part1",
       cards: sampleCards,
       finalStatements: {},
       valueSet: valueSet, // Store the set used
+      editingDescriptionCardId: null, // Start with no editing
     };
   }
 
@@ -179,6 +184,29 @@ export class App {
     newState.cards.push(newCard);
     this.updateState(newState);
     this.hideAddValueForm();
+  }
+
+  // --- Description Edit Logic ---
+  private startEditingDescription(cardId: number) {
+      const newState = this.undoManager.getState();
+      newState.editingDescriptionCardId = cardId;
+      this.updateState(newState); // Re-render to show the textarea
+  }
+
+  private saveDescriptionEdit(cardId: number, newDescription: string) {
+      const newState = this.undoManager.getState();
+      const cardToUpdate = newState.cards.find(c => c.id === cardId);
+      if (cardToUpdate) {
+          cardToUpdate.description = newDescription.trim(); // Save trimmed description
+      }
+      newState.editingDescriptionCardId = null; // Stop editing
+      this.updateState(newState);
+  }
+
+  private cancelDescriptionEdit() {
+      const newState = this.undoManager.getState();
+      newState.editingDescriptionCardId = null; // Just stop editing, don't save
+      this.updateState(newState);
   }
 
   // Bind event listeners for UI interactions.
@@ -361,29 +389,71 @@ export class App {
     }
   }
 
-  // Creates a draggable card element, now including the description.
+  // Creates a draggable card element, handles description editing UI.
   private createCardElement(card: ValueCard): HTMLElement {
     const cardElem = document.createElement("div");
     cardElem.className = "card";
     cardElem.draggable = true;
     cardElem.dataset.cardId = card.id.toString();
 
-    // Create elements for name and description
     const nameElem = document.createElement("span");
     nameElem.className = "card-name";
     nameElem.textContent = card.name;
-
-    const descriptionElem = document.createElement("span");
-    descriptionElem.className = "card-description";
-    // Prioritize card.description, fall back to map for built-in values
-    descriptionElem.textContent = card.description || valueDefinitionsMap.get(card.name) || ""; 
-
     cardElem.appendChild(nameElem);
-    cardElem.appendChild(descriptionElem);
+
+    // Container for description/edit area
+    const descriptionContainer = document.createElement("div");
+    descriptionContainer.className = "card-description-container";
+
+    if (this.state.editingDescriptionCardId === card.id) {
+        // RENDER EDIT TEXTAREA
+        const textarea = document.createElement('textarea');
+        textarea.className = 'card-description-edit';
+        textarea.value = card.description || valueDefinitionsMap.get(card.name) || "";
+        textarea.rows = 3;
+
+        textarea.addEventListener('blur', () => {
+            this.saveDescriptionEdit(card.id, textarea.value);
+        });
+
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // Prevent newline
+                this.saveDescriptionEdit(card.id, textarea.value);
+            } else if (e.key === 'Escape') {
+                this.cancelDescriptionEdit();
+            }
+        });
+        
+        descriptionContainer.appendChild(textarea);
+        // Auto-focus the textarea after it's rendered
+        setTimeout(() => textarea.focus(), 0); 
+
+    } else {
+        // RENDER DESCRIPTION TEXT (Clickable)
+        const descriptionElem = document.createElement("span");
+        descriptionElem.className = "card-description clickable"; // Add clickable class
+        descriptionElem.textContent = card.description || valueDefinitionsMap.get(card.name) || "(Click to add description)"; 
+        descriptionElem.title = "Click to edit description"; // Tooltip
+
+        descriptionElem.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent card drag start if clicking text
+            this.startEditingDescription(card.id);
+        });
+        descriptionContainer.appendChild(descriptionElem);
+    }
+
+    cardElem.appendChild(descriptionContainer);
 
     cardElem.addEventListener("dragstart", (e) => {
-      e.dataTransfer?.setData("text/plain", card.id.toString());
+        // Only allow drag if not editing description
+        if (this.state.editingDescriptionCardId === null) {
+            e.dataTransfer?.setData("text/plain", card.id.toString());
+        } else {
+            e.preventDefault(); // Prevent drag while editing
+        }
     });
+
     return cardElem;
   }
 
@@ -556,22 +626,25 @@ export class App {
           title.textContent = category.title;
           section.appendChild(title);
           
-          const values = this.state.cards
-            .filter(c => c.column === category.column)
-            .map(c => c.name); // Keep getting just the names for this list
+          // Get the actual card objects, not just names
+          const cardsInCategory = this.state.cards
+            .filter(c => c.column === category.column);
+            // Sort them alphabetically by name for consistent display
+          cardsInCategory.sort((a, b) => a.name.localeCompare(b.name));
           
-          if (values.length > 0) {
+          if (cardsInCategory.length > 0) {
             const list = document.createElement("ul");
-            values.forEach(value => {
+            // Iterate over the card objects
+            cardsInCategory.forEach(card => { 
               const li = document.createElement("li");
-              // Create spans for name and description
               const nameSpan = document.createElement('span');
               nameSpan.className = 'review-value-name';
-              nameSpan.textContent = value;
-
+              nameSpan.textContent = card.name; // Use name from card object
+ 
               const descSpan = document.createElement('span');
               descSpan.className = 'review-value-description';
-              descSpan.textContent = valueDefinitionsMap.get(value) || "(Description not found)";
+              // Prioritize card.description, fall back to map
+              descSpan.textContent = card.description || valueDefinitionsMap.get(card.name) || "(Description missing)";
 
               li.appendChild(nameSpan);
               li.appendChild(descSpan);

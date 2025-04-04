@@ -77,6 +77,27 @@ body {
     padding-right: 4px;
   }
   
+  /* Make description clickable */
+  .card-description.clickable {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  .card-description.clickable:hover {
+    background-color: #f0f0f0; /* Subtle hover effect */
+  }
+  
+  /* Textarea for editing description */
+  .card-description-edit {
+    width: 90%; /* Adjust as needed */
+    margin: 4px auto; /* Center and add vertical space */
+    font-size: 0.85em;
+    font-family: inherit;
+    border: 1px solid #aaa;
+    border-radius: 3px;
+    resize: vertical; /* Allow vertical resize */
+    box-sizing: border-box;
+  }
+  
   .values-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
