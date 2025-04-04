@@ -108,11 +108,39 @@ body {
   }
   
   .grid-section li {
-    padding: 0.5em 0;
     border-bottom: 1px solid #eee;
+    padding: 0.75em 0;
   }
   
   .grid-section li:last-child {
     border-bottom: none;
+  }
+  
+  /* Styles for Review Page Lists */
+  #reviewContent .grid-section ul li {
+    margin-bottom: 0;
+  }
+  
+  .review-value-name {
+    font-weight: bold;
+    display: block;
+  }
+  
+  .review-value-description {
+    font-size: 0.9em;
+    color: #444;
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+  
+  /* Styles for the separate Core Values & Statements list */
+  #reviewContent > ul {
+    list-style: disc;
+    margin-left: 20px;
+  }
+  
+  #reviewContent > ul li {
+    margin-bottom: 5px;
   }
   

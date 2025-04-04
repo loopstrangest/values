@@ -138,18 +138,14 @@ export class App {
       this.updateState(newState); // Call updateState directly
     });
     document.getElementById("backToPart1")?.addEventListener("click", () => {
-      const newState = this.undoManager.getState();
-      newState.currentPart = "part1";
-      // Restore Part1: move cards back to their original positions
-      // This logic seems potentially flawed - if a card started in 'important' but moved to 'unassigned' in part 2,
-      // this moves it to 'veryImportant'. Revisiting Part 1 might require storing original Part 1 state.
-      // For now, keeping the existing logic.
-      newState.cards.forEach((c) => {
-        if (c.column === "unassigned") {
-          c.column = "veryImportant";
-        }
-      });
-      this.updateState(newState); // Call updateState directly
+      // Simply undo the last state change
+      const prevState = this.undoManager.undo();
+      if (prevState) {
+        this.state = prevState;
+        this.saveState();
+        this.render();
+        this.updateUndoRedoButtons();
+      }
     });
     document.getElementById("toPart3")?.addEventListener("click", () => {
       const newState = this.undoManager.getState();
@@ -173,16 +169,14 @@ export class App {
       this.updateState(newState); // Call updateState directly
     });
     document.getElementById("backToPart2")?.addEventListener("click", () => {
-      const newState = this.undoManager.getState();
-      newState.currentPart = "part2";
-      // Restore Part2: move cards back to their original positions
-      newState.cards.forEach((c) => {
-        // This assumes cards in Part 3 only came from 'veryImportant' in Part 2
-        if (c.column === "core" || c.column === "additional") {
-          c.column = "veryImportant";
-        }
-      });
-      this.updateState(newState); // Call updateState directly
+      // Simply undo the last state change
+      const prevState = this.undoManager.undo();
+      if (prevState) {
+        this.state = prevState;
+        this.saveState();
+        this.render();
+        this.updateUndoRedoButtons();
+      }
     });
     document.getElementById("toPart4")?.addEventListener("click", () => {
       const newState = this.undoManager.getState();
@@ -195,12 +189,27 @@ export class App {
       this.updateState(newState); // Call updateState directly
     });
     document.getElementById("backToPart3")?.addEventListener("click", () => {
-      const newState = this.undoManager.getState();
-      newState.currentPart = "part3";
-      this.updateState(newState); // Call updateState directly
+      // Simply undo the last state change
+      const prevState = this.undoManager.undo();
+      if (prevState) {
+        this.state = prevState;
+        this.saveState();
+        this.render();
+        this.updateUndoRedoButtons();
+      }
     });
     document.getElementById("finish")?.addEventListener("click", () => {
       const newState = this.undoManager.getState();
+      // Check if all core values have statements
+      const coreCards = newState.cards.filter(c => c.column === 'core');
+      const missingStatements = coreCards.filter(card => !newState.finalStatements[card.id]?.trim());
+
+      if (missingStatements.length > 0) {
+          alert(`Please provide a statement for all core values. Missing: ${missingStatements.map(c => c.name).join(', ')}`);
+          return; // Prevent transition
+      }
+      
+      // Original transition logic
       newState.currentPart = "review";
       this.updateState(newState); // Call updateState directly
     });
@@ -492,13 +501,23 @@ export class App {
           
           const values = this.state.cards
             .filter(c => c.column === category.column)
-            .map(c => c.name);
+            .map(c => c.name); // Keep getting just the names for this list
           
           if (values.length > 0) {
             const list = document.createElement("ul");
             values.forEach(value => {
               const li = document.createElement("li");
-              li.textContent = value;
+              // Create spans for name and description
+              const nameSpan = document.createElement('span');
+              nameSpan.className = 'review-value-name';
+              nameSpan.textContent = value;
+
+              const descSpan = document.createElement('span');
+              descSpan.className = 'review-value-description';
+              descSpan.textContent = valueDefinitionsMap.get(value) || "(Description not found)";
+
+              li.appendChild(nameSpan);
+              li.appendChild(descSpan);
               list.appendChild(li);
             });
             section.appendChild(list);

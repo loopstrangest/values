@@ -19,6 +19,6 @@
     "dev": "parcel ./index.html",
     "build": "parcel build ./index.html",
     "test": "bun test",
-    "deploy": "bun run build && bunx wrangler pages deploy dist"
+    "deploy": "bun test && bun run build && bunx wrangler pages deploy dist"
   }
 }
