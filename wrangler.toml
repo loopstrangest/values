@@ -1,8 +1,3 @@
-name = "values" 
+name = "values-exercise" 
 compatibility_date = "2025-04-03"
-
-[pages_build]
-# Command to build your project
-build_command = "bun run build"
-# The directory where your build command puts the built assets (Parcel default is dist)
-build_output_dir = "dist" 
+pages_build_output_dir = "./dist"
