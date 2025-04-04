@@ -9,7 +9,8 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "parcel": "^2.14.4"
+    "parcel": "^2.14.4",
+    "wrangler": "^4.7.0"
   },
   "scripts": {
     "dev": "parcel ./index.html",
