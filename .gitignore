@@ -34,3 +34,12 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 
 .parcel-cache
+
+# Video files
+*.mov
+*.mp4
+*.avi
+*.mkv
+
+# Claude Code local settings
+.claude/
