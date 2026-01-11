@@ -1,6 +1,103 @@
 import { UndoManager } from './undoManager';
 import { VALUES } from './values';
 
+// Custom Modal System
+type AlertType = 'warning' | 'error' | 'success' | 'info';
+
+interface ModalOptions {
+  title: string;
+  message: string;
+  type?: AlertType;
+  confirmText?: string;
+  cancelText?: string;
+  showCancel?: boolean;
+}
+
+const ICONS: Record<AlertType, string> = {
+  warning: '⚠',
+  error: '✕',
+  success: '✓',
+  info: '!',
+};
+
+function showModal(options: ModalOptions): Promise<boolean> {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('alertModal') as HTMLDivElement;
+    const icon = document.getElementById('alertIcon') as HTMLDivElement;
+    const title = document.getElementById('alertTitle') as HTMLHeadingElement;
+    const message = document.getElementById('alertMessage') as HTMLParagraphElement;
+    const confirmBtn = document.getElementById('alertConfirmBtn') as HTMLButtonElement;
+    const cancelBtn = document.getElementById('alertCancelBtn') as HTMLButtonElement;
+
+    const type = options.type || 'info';
+
+    // Set content
+    icon.className = `alert-icon ${type}`;
+    icon.textContent = ICONS[type];
+    title.textContent = options.title;
+    message.textContent = options.message;
+    confirmBtn.textContent = options.confirmText || 'OK';
+    cancelBtn.textContent = options.cancelText || 'Cancel';
+    cancelBtn.style.display = options.showCancel ? 'inline-block' : 'none';
+
+    // Show modal
+    modal.style.display = 'flex';
+
+    // Focus confirm button
+    setTimeout(() => confirmBtn.focus(), 50);
+
+    // Cleanup function
+    const cleanup = () => {
+      modal.style.display = 'none';
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeydown);
+    };
+
+    const onConfirm = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onBackdrop = (e: MouseEvent) => {
+      if (e.target === modal) {
+        cleanup();
+        resolve(false);
+      }
+    };
+
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cleanup();
+        resolve(false);
+      } else if (e.key === 'Enter') {
+        cleanup();
+        resolve(true);
+      }
+    };
+
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeydown);
+  });
+}
+
+// Convenience functions
+function showAlert(title: string, message: string, type: AlertType = 'info'): Promise<boolean> {
+  return showModal({ title, message, type });
+}
+
+function showConfirm(title: string, message: string, type: AlertType = 'warning'): Promise<boolean> {
+  return showModal({ title, message, type, showCancel: true, confirmText: 'Yes', cancelText: 'No' });
+}
+
 // Define interfaces for our value cards and overall app state.
 export interface ValueCard {
   id: number;
@@ -137,19 +234,19 @@ export class App {
     }
   }
 
-  public saveNewValue() {
+  public async saveNewValue() {
     const nameInput = document.getElementById('newValueName') as HTMLInputElement | null;
     const descInput = document.getElementById('newValueDesc') as HTMLTextAreaElement | null;
     const name = nameInput?.value.trim().toUpperCase(); // Normalize name
     const description = descInput?.value.trim();
 
     if (!name) {
-      alert('Please enter a name for the new value.');
+      await showAlert('Missing Name', 'Please enter a name for the new value.', 'warning');
       nameInput?.focus();
       return;
     }
     if (!description) {
-      alert('Please enter a description for the new value.');
+      await showAlert('Missing Description', 'Please enter a description for the new value.', 'warning');
       descInput?.focus();
       return;
     }
@@ -158,7 +255,7 @@ export class App {
 
     // Check for duplicates (case-insensitive)
     if (newState.cards.some((card) => card.name.toUpperCase() === name)) {
-      alert(`Value "${name}" already exists.`);
+      await showAlert('Duplicate Value', `A value named "${name}" already exists.`, 'error');
       nameInput?.focus();
       return;
     }
@@ -169,13 +266,30 @@ export class App {
       name: name,
       description: description, // Store description directly on card
       column: 'unassigned', // Add to unassigned in current view
-      order: newState.cards.length, // Add to end
+      order: 0, // Will be set below
       isCustom: true,
     };
 
     this.nextCustomCardId--; // Decrement for next custom card
 
+    // Add the new card
     newState.cards.push(newCard);
+
+    // Sort only unassigned cards alphabetically, preserve order in other columns
+    const unassignedCards = newState.cards.filter((c) => c.column === 'unassigned');
+    unassignedCards.sort((a, b) => a.name.localeCompare(b.name));
+    unassignedCards.forEach((card, index) => {
+      card.order = index;
+    });
+
+    // Sort entire array so unassigned cards render in alphabetical order
+    newState.cards.sort((a, b) => {
+      if (a.column === 'unassigned' && b.column === 'unassigned') {
+        return a.name.localeCompare(b.name);
+      }
+      return a.order - b.order;
+    });
+
     this.updateState(newState);
     this.hideAddValueForm();
   }
@@ -226,12 +340,16 @@ export class App {
     });
 
     // Navigation buttons
-    document.getElementById('toPart2')?.addEventListener('click', () => {
+    document.getElementById('toPart2')?.addEventListener('click', async () => {
       const newState = this.undoManager.getState();
       // Check for unassigned cards before proceeding
       const unassignedCount = newState.cards.filter((card) => card.column === 'unassigned').length;
       if (unassignedCount > 0) {
-        alert(`Please sort all ${unassignedCount} unassigned value(s) before proceeding to Part 2.`);
+        await showAlert(
+          'Sort All Values',
+          `Please sort all ${unassignedCount} unassigned value(s) before proceeding to Part 2.`,
+          'warning',
+        );
         return;
       }
       newState.currentPart = 'part2';
@@ -240,12 +358,16 @@ export class App {
         .map((card) => ({ ...card, column: 'unassigned' }));
       this.updateState(newState); // Call updateState directly
     });
-    document.getElementById('toPart3')?.addEventListener('click', () => {
+    document.getElementById('toPart3')?.addEventListener('click', async () => {
       const newState = this.undoManager.getState();
       // Check for unassigned cards before proceeding
       const unassignedCount = newState.cards.filter((card) => card.column === 'unassigned').length;
       if (unassignedCount > 0) {
-        alert(`Please sort all ${unassignedCount} unassigned value(s) before proceeding.`);
+        await showAlert(
+          'Sort All Values',
+          `Please sort all ${unassignedCount} unassigned value(s) before proceeding.`,
+          'warning',
+        );
         return;
       }
       const veryImportantCards = newState.cards.filter((c) => c.column === 'veryImportant');
@@ -261,25 +383,31 @@ export class App {
 
       this.updateState(newState); // Call updateState directly
     });
-    document.getElementById('toPart4')?.addEventListener('click', () => {
+    document.getElementById('toPart4')?.addEventListener('click', async () => {
       const newState = this.undoManager.getState();
       const coreCount = newState.cards.filter((c) => c.column === 'core').length;
       if (coreCount > 5) {
-        alert("You can only have 5 core values! Please move some values to 'Also Something I Want' before continuing.");
+        await showAlert(
+          'Too Many Core Values',
+          "You can only have 5 core values. Please move some values to 'Also Something I Want' before continuing.",
+          'warning',
+        );
         return; // Don't update state if validation fails
       }
       newState.currentPart = 'part4';
       this.updateState(newState); // Call updateState directly
     });
-    document.getElementById('finish')?.addEventListener('click', () => {
+    document.getElementById('finish')?.addEventListener('click', async () => {
       const newState = this.undoManager.getState();
       // Check if all core values have statements
       const coreCards = newState.cards.filter((c) => c.column === 'core');
       const missingStatements = coreCards.filter((card) => !newState.finalStatements[card.id]?.trim());
 
       if (missingStatements.length > 0) {
-        alert(
+        await showAlert(
+          'Missing Statements',
           `Please provide a statement for all core values. Missing: ${missingStatements.map((c) => c.name).join(', ')}`,
+          'warning',
         );
         return; // Prevent transition
       }
@@ -294,20 +422,30 @@ export class App {
     });
 
     // --- Add listeners for the toggle buttons ---
-    document.getElementById('useLimitedValuesBtn')?.addEventListener('click', () => {
+    document.getElementById('useLimitedValuesBtn')?.addEventListener('click', async () => {
       // Use captured instance
       const currentSet = this.undoManager.getState().valueSet;
       if (currentSet !== 'limited') {
-        if (confirm('Switching value sets will reset your current progress. Are you sure?')) {
+        const confirmed = await showConfirm(
+          'Switch Value Set',
+          'Switching value sets will reset your current progress. Are you sure?',
+          'warning',
+        );
+        if (confirmed) {
           this.toggleValueSet();
         }
       }
     });
-    document.getElementById('useAllValuesBtn')?.addEventListener('click', () => {
+    document.getElementById('useAllValuesBtn')?.addEventListener('click', async () => {
       // Use captured instance
       const currentSet = this.undoManager.getState().valueSet;
       if (currentSet !== 'all') {
-        if (confirm('Switching value sets will reset your current progress. Are you sure?')) {
+        const confirmed = await showConfirm(
+          'Switch Value Set',
+          'Switching value sets will reset your current progress. Are you sure?',
+          'warning',
+        );
+        if (confirmed) {
           this.toggleValueSet();
         }
       }
@@ -334,13 +472,13 @@ export class App {
     });
 
     // Clear storage button (renamed to Restart exercise)
-    document.getElementById('clearStorageBtn')?.addEventListener('click', () => {
-      // Update confirmation message
-      if (
-        confirm(
-          'Are you sure you want to restart the exercise? All progress will be lost. This action cannot be undone.',
-        )
-      ) {
+    document.getElementById('clearStorageBtn')?.addEventListener('click', async () => {
+      const confirmed = await showConfirm(
+        'Restart Exercise',
+        'Are you sure you want to restart? All progress will be lost. This action cannot be undone.',
+        'error',
+      );
+      if (confirmed) {
         localStorage.removeItem(this.storageKey);
         // Reset to the default state using the *current* value set preference
         const newState = this.defaultState(this.state.valueSet);
@@ -353,9 +491,18 @@ export class App {
     containers.forEach((container) => {
       container.addEventListener('dragover', (e) => {
         e.preventDefault();
+        container.classList.add('drag-over');
+      });
+      container.addEventListener('dragleave', (e) => {
+        // Only remove if we're leaving the container entirely
+        const relatedTarget = (e as DragEvent).relatedTarget as Node | null;
+        if (!container.contains(relatedTarget)) {
+          container.classList.remove('drag-over');
+        }
       });
       container.addEventListener('drop', (e) => {
         e.preventDefault();
+        container.classList.remove('drag-over');
         const dragEvent = e as DragEvent;
         const cardId = Number(dragEvent.dataTransfer?.getData('text/plain'));
         const targetColumn = container.parentElement!.getAttribute('data-column');
@@ -363,11 +510,17 @@ export class App {
           this.moveCard(cardId, targetColumn);
         }
       });
+      container.addEventListener('dragend', () => {
+        // Clean up all drag-over states
+        document.querySelectorAll('.card-container.drag-over').forEach((el) => {
+          el.classList.remove('drag-over');
+        });
+      });
     });
   }
 
   // Moves a card (by id) to a new column.
-  private moveCard(cardId: number, newColumn: string) {
+  private async moveCard(cardId: number, newColumn: string) {
     const newState = this.undoManager.getState();
     const card = newState.cards.find((c) => c.id === cardId);
     if (card) {
@@ -375,7 +528,7 @@ export class App {
       if (newState.currentPart === 'part3' && newColumn === 'core') {
         const coreCount = newState.cards.filter((c) => c.column === 'core').length;
         if (coreCount >= 5 && card.column !== 'core') {
-          alert('You can only have 5 core values!');
+          await showAlert('Limit Reached', 'You can only have 5 core values!', 'warning');
           return;
         }
       }
@@ -674,6 +827,9 @@ export class App {
       }
     }
 
+    // Update progress stepper
+    this.updateProgressStepper();
+
     // -- Update toggle button appearance based on current state --
     const limitedBtn = document.getElementById('useLimitedValuesBtn') as HTMLButtonElement | null;
     const allBtn = document.getElementById('useAllValuesBtn') as HTMLButtonElement | null;
@@ -695,6 +851,31 @@ export class App {
     if (undoBtn) undoBtn.disabled = !this.undoManager.canUndo();
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (redoBtn) redoBtn.disabled = !this.undoManager.canRedo();
+  }
+
+  // Update the progress stepper UI
+  private updateProgressStepper() {
+    const steps = ['part1', 'part2', 'part3', 'part4', 'review'];
+    const currentIndex = steps.indexOf(this.state.currentPart);
+
+    const stepElements = document.querySelectorAll('.step');
+    const connectors = document.querySelectorAll('.step-connector');
+
+    stepElements.forEach((stepEl, index) => {
+      stepEl.classList.remove('active', 'completed');
+      if (index === currentIndex) {
+        stepEl.classList.add('active');
+      } else if (index < currentIndex) {
+        stepEl.classList.add('completed');
+      }
+    });
+
+    connectors.forEach((connector, index) => {
+      connector.classList.remove('completed');
+      if (index < currentIndex) {
+        connector.classList.add('completed');
+      }
+    });
   }
 }
 

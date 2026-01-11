@@ -19,6 +19,47 @@
         </div>
       </header>
 
+      <!-- Progress Stepper -->
+      <nav id="progress-stepper" class="progress-stepper">
+        <div class="step" data-step="part1">
+          <span class="step-number">1</span>
+          <span class="step-label">Initial Sort</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="part2">
+          <span class="step-number">2</span>
+          <span class="step-label">Refine</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="part3">
+          <span class="step-number">3</span>
+          <span class="step-label">Core Values</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="part4">
+          <span class="step-number">4</span>
+          <span class="step-label">Reflect</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="review">
+          <span class="step-number">✓</span>
+          <span class="step-label">Review</span>
+        </div>
+      </nav>
+
+      <!-- Custom Alert Modal -->
+      <div id="alertModal" class="modal alert-modal" style="display: none">
+        <div class="modal-content alert-content">
+          <div class="alert-icon" id="alertIcon"></div>
+          <h3 id="alertTitle">Notice</h3>
+          <p id="alertMessage"></p>
+          <div class="modal-buttons alert-buttons">
+            <button id="alertConfirmBtn">OK</button>
+            <button id="alertCancelBtn" style="display: none">Cancel</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Add Value Form (Initially Hidden) -->
       <div id="addValueForm" class="modal" style="display: none">
         <div class="modal-content">
