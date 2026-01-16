@@ -16,6 +16,10 @@ export const VALUES = [
     description: 'to have new and exciting experiences',
   },
   {
+    name: 'ALIVENESS',
+    description: 'to follow resonance and vitality in making choices',
+  },
+  {
     name: 'ATTRACTIVENESS',
     description: 'to be physically attractive',
   },
@@ -44,6 +48,10 @@ export const VALUES = [
     description: 'to have a life full of change and variety',
   },
   {
+    name: 'COLLABORATION',
+    description: 'to work with others for a common purpose or good',
+  },
+  {
     name: 'COMFORT',
     description: 'to have a pleasant and comfortable life',
   },
@@ -62,6 +70,10 @@ export const VALUES = [
   {
     name: 'COOPERATION',
     description: 'to work collaboratively with others',
+  },
+  {
+    name: 'COURAGE',
+    description: 'to have a mind or spirit that enables you to face difficulty with bravery',
   },
   {
     name: 'COURTESY',
@@ -137,7 +149,7 @@ export const VALUES = [
   },
   {
     name: 'HEALTH',
-    description: 'to be physically well and healthy',
+    description: 'to live in ways that promote overall health and vigor',
   },
   {
     name: 'HELPFULNESS',
@@ -176,8 +188,16 @@ export const VALUES = [
     description: 'to share my innermost experiences with others',
   },
   {
+    name: 'INTUITION',
+    description: 'to have and to trust your own judgement',
+  },
+  {
     name: 'JUSTICE',
     description: 'to promote fair and equal treatment for all',
+  },
+  {
+    name: 'KINDNESS',
+    description: 'to be warm, considerate and benevolent toward others',
   },
   {
     name: 'KNOWLEDGE',
@@ -237,7 +257,7 @@ export const VALUES = [
   },
   {
     name: 'POPULARITY',
-    description: 'to be well-liked by many people',
+    description: 'to be recognized and well-liked by many people',
   },
   {
     name: 'POWER',
@@ -254,6 +274,10 @@ export const VALUES = [
   {
     name: 'REALISM',
     description: 'to see and act realistically and practically',
+  },
+  {
+    name: 'RESILIENCE',
+    description: 'to recover quickly from difficulties',
   },
   {
     name: 'RESPONSIBILITY',
@@ -300,6 +324,10 @@ export const VALUES = [
     description: 'to live life simply, with minimal needs',
   },
   {
+    name: 'SOCIAL CONNECTION',
+    description: 'to prioritize close and ongoing relationship with other people',
+  },
+  {
     name: 'SOLITUDE',
     description: 'to have time and space where I can be apart from others',
   },
@@ -324,8 +352,16 @@ export const VALUES = [
     description: 'to live a morally pure and excellent life',
   },
   {
+    name: 'VULNERABILITY',
+    description: 'to honor uncertainty, risk and emotional exposure in yourself and others',
+  },
+  {
     name: 'WEALTH',
     description: 'to have plenty of money',
+  },
+  {
+    name: 'WISDOM',
+    description: 'to have deep insight, knowledge and judgement',
   },
   {
     name: 'WORLD PEACE',
